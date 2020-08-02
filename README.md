@@ -1,5 +1,5 @@
 # Visterm
-A terminal with an audio visualizer!
+A terminal application adds an audio visualizer to the terminal!
 
 ## Dependencies
  - ncurses
@@ -7,3 +7,4 @@ A terminal with an audio visualizer!
 
 To build, use `make`, which outputs a binary named `visterm`
 
+`visterm` can then be run in any curses-compatible terminal.
