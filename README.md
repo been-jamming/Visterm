@@ -1,5 +1,5 @@
 # Visterm
-A terminal application adds an audio visualizer to the terminal!
+A terminal application which adds an audio visualizer to the terminal!
 
 ## Dependencies
  - ncurses
