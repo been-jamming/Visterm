@@ -34,7 +34,12 @@ uint64_t get_nanoseconds(struct timespec t){
 
 void print_bash_output(char *str){
 	while(*str){
-		if(*str != '\r')
+		if(*str == 0x1B && str[1] == 'c'){
+			str++;
+			erase();
+		} else if(*str == '\a')
+			fputc('\a', stdout);
+		else if(*str != '\r')
 			printw("%c", (int) *str);
 		str++;
 	}
