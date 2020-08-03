@@ -18,14 +18,21 @@ int open_terminal(){
 	char * const argv2[] = {"/bin/bash", 0};
 	char term_buffer[32] = "TERM=visterm-m";
 	char path_buffer[1024];
+	char home_buffer[1024];
 	char *path;
-	char *env[] = {"TERM=dumb", "COLORTERM=", 0, 0};
+	char *home;
+	char *env[] = {"TERM=dumb", "COLORTERM=", 0, 0, 0};
 	struct winsize size;
 
 	path = getenv("PATH");
 	if(path){
 		snprintf(path_buffer, 1024, "PATH=%s", path);
 		env[2] = path_buffer;
+	}
+	home = getenv("HOME");
+	if(home){
+		snprintf(home_buffer, 1024, "HOME=%s", home);
+		env[3] = home_buffer;
 	}
 
 	master = posix_openpt(O_RDWR | O_NOCTTY);
