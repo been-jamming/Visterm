@@ -159,6 +159,11 @@ int main(int argc, char **argv){
 	sigaddset(&block_sigint, SIGINT);
 
 	initscr();
+	if(!has_colors()){
+		endwin();
+		fprintf(stderr, "Error: the terminal does not support colors\n");
+		return 1;
+	}
 	pty_fd = open_terminal();
 	if(pty_fd == -1 || fcntl(pty_fd, F_SETFL, O_NONBLOCK) < 0){
 		endwin();
@@ -168,10 +173,17 @@ int main(int argc, char **argv){
 
 	cbreak();
 	start_color();
-	init_pair(1, COLOR_WHITE, COLOR_BLACK);
-	init_pair(2, COLOR_WHITE, COLOR_RED);
-	init_pair(3, COLOR_WHITE, COLOR_YELLOW);
-	init_pair(4, COLOR_WHITE, COLOR_GREEN);
+	if(COLORS >= 256){
+		init_pair(1, COLOR_WHITE, COLOR_BLACK);
+		init_pair(2, COLOR_WHITE, 52);
+		init_pair(3, COLOR_WHITE, 58);
+		init_pair(4, COLOR_WHITE, 22);
+	} else {
+		init_pair(1, COLOR_WHITE, COLOR_BLACK);
+		init_pair(2, COLOR_WHITE, COLOR_RED);
+		init_pair(3, COLOR_WHITE, COLOR_YELLOW);
+		init_pair(4, COLOR_WHITE, COLOR_GREEN);
+	}
 	bkgd(COLOR_PAIR(1));
 	noecho();
 	nodelay(stdscr, 1);
