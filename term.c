@@ -10,6 +10,7 @@
 #include <complex.h>
 #include <SDL2/SDL.h>
 #include "audio_monitor.h"
+#include "fft.h"
 
 int open_terminal();
 double *averages;
@@ -50,6 +51,8 @@ void exit_terminal(){
 	endwin();
 	SDL_Quit();
 	close(pty_fd);
+	free(frequencies);
+	free(samples);
 	printf("Terminal closed\n");
 
 	exit(0);
@@ -107,6 +110,8 @@ void update_visualizer(){
 	getyx(stdscr, orig_y, orig_x);
 
 	SDL_LockAudioDevice(recording_device_id);
+	dfft2_float(frequencies, samples, 10);
+	SDL_UnlockAudioDevice(recording_device_id);
 
 	term_height = LINES;
 	term_width = COLS;
@@ -122,8 +127,6 @@ void update_visualizer(){
 		//mvchgat(y, 0, -1, A_NORMAL, 2, NULL);
 		//mvchgat(y, x, -1, A_NORMAL, 1, NULL);
 	}
-
-	SDL_UnlockAudioDevice(recording_device_id);
 
 	move(orig_y, orig_x);
 }
@@ -232,9 +235,11 @@ int main(int argc, char **argv){
 				write(pty_fd, "\x03", 1);
 				do_ctrl_c = 0;
 			}
+			last_time.tv_sec = (last_nanoseconds + 25000000)/1000000000ULL;
+			last_time.tv_nsec = (last_nanoseconds + 25000000)%1000000000ULL;
+		} else {
+			clock_gettime(CLOCK_MONOTONIC, &last_time);
 		}
-		last_time.tv_sec = (last_nanoseconds + 25000000)/1000000000ULL;
-		last_time.tv_nsec = (last_nanoseconds + 25000000)%1000000000ULL;
 	}
 }
 
