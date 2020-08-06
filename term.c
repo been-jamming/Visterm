@@ -33,14 +33,124 @@ uint64_t get_nanoseconds(struct timespec t){
 	return 1000000000ULL*t.tv_sec + t.tv_nsec;
 }
 
+void bound_cursor_position(int *y, int *x){
+	if(*y < 0)
+		*y = 0;
+	if(*x < 0)
+		*x = 0;
+	if(*y > LINES)
+		*y = LINES;
+	if(*x > COLS)
+		*x = COLS;
+}
+
+void parse_escape_sequence(char **str){
+	int n;
+	int m;
+	int y;
+	int x;
+
+	char *orig;
+
+	orig = *str;
+
+	if(**str == 'c'){
+		++*str;
+		erase();
+		return;
+	} else if(**str == '['){
+		++*str;
+		if(**str >= '0' && **str <= '9'){
+			n = strtol(*str, str, 10);
+		} else {
+			n = 1;
+		}
+		if(**str == ';'){
+			++*str;
+			if(**str >= '0' && **str <= '9'){
+				m = strtol(*str, str, 10);
+			} else {
+				m = 1;
+			}
+			if(**str == 'H'){
+				++*str;
+				n--;
+				m--;
+				bound_cursor_position(&n, &m);
+				move(n, m);
+			} else {
+				*str = orig;
+				return;
+			}
+		} else if(**str == 'A'){
+			++*str;
+			getyx(stdscr, y, x);
+			y -= n;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else if(**str == 'B'){
+			++*str;
+			getyx(stdscr, y, x);
+			y += n;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else if(**str == 'C'){
+			++*str;
+			getyx(stdscr, y, x);
+			x += n;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else if(**str == 'D'){
+			++*str;
+			getyx(stdscr, y, x);
+			x -= n;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else if(**str == 'E'){
+			++*str;
+			getyx(stdscr, y, x);
+			y += n;
+			bound_cursor_position(&y, &x);
+			move(y, 1);
+		} else if(**str = 'F'){
+			++*str;
+			getyx(stdscr, y, x);
+			y -= n;
+			bound_cursor_position(&y, &x);
+			move(y, 1);
+		} else if(**str == 'G'){
+			++*str;
+			getyx(stdscr, y, x);
+			x = n;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else {
+			*str = orig;
+			return;
+		}
+	} else {
+		*str = orig;
+		return;
+	}
+}
+
 void print_bash_output(char *str){
+	int y;
+	int x;
+
 	while(*str){
-		if(*str == 0x1B && str[1] == 'c'){
+		if(*str == 0x1B){
 			str++;
-			erase();
+			parse_escape_sequence(&str);
+			str--;
 		} else if(*str == '\a')
 			fputc('\a', stdout);
-		else if(*str != '\r')
+		else if(*str == '\b'){
+			getyx(stdscr, y, x);
+			x--;
+			bound_cursor_position(&y, &x);
+			move(y, x);
+		} else if(*str != '\r')
 			printw("%c", (int) *str);
 		str++;
 	}
