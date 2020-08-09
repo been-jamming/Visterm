@@ -1,9 +1,6 @@
-# default:
-# 	gcc audio_monitor.c fft.c open_terminal.c term.c -lncurses -lSDL2 -lm -o visterm
 
-	
 CC	:= gcc
-LFLAGS	:= -lSDL2 -lm 
+LFLAGS	:= -lncurses -lSDL2 -lm 
 CFLAGS	:= -Wall #-Werror 
 
 RM = rm -f   # rm command
