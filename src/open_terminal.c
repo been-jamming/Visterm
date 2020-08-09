@@ -16,7 +16,6 @@ int open_terminal(){
 	char *slave_name;
 	pid_t p;
 	char * const argv2[] = {"/bin/bash", 0};
-	char term_buffer[32] = "TERM=visterm-m";
 	char path_buffer[1024];
 	char home_buffer[1024];
 	char *path;
@@ -81,6 +80,8 @@ int open_terminal(){
 		dup2(slave, STDERR_FILENO);
 		close(slave);
 		execve("/bin/bash", argv2, env);
+
+		return -1;//Only to prevent a warning
 	} else if(p > 0){
 		close(slave);
 		return master;

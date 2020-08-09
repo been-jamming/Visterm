@@ -243,8 +243,6 @@ void update_visualizer(){
 
 int main(int argc, char **argv){
 	char buffer[256] = {0};
-	char in_buffer[256] = {0};
-	unsigned char current_pos = 0;
 	int key_press;
 	char current_char;
 	int chars_read;

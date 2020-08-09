@@ -12,8 +12,6 @@ SDL_AudioDeviceID recording_device_id;
 complex double *frequencies;
 float *samples;
 
-static SDL_AudioSpec output_spec;
-
 void recording_callback(void *user_data, uint8_t *stream, int len){
 	memcpy(samples, stream, sizeof(float)*(1<<num_samples_log));
 }
