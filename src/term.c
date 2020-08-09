@@ -112,7 +112,7 @@ void parse_escape_sequence(char **str){
 			y += n;
 			bound_cursor_position(&y, &x);
 			move(y, 1);
-		} else if(**str = 'F'){
+		} else if(**str == 'F'){
 			++*str;
 			getyx(stdscr, y, x);
 			y -= n;
