@@ -6,7 +6,7 @@ CFLAGS	:= -Wall #-Werror
 RM = rm -f   # rm command
 PROJECT_NAME = visterm 
 TARGET_BIN = visterm.out  
-BIN_LOC = /usr/local
+BIN_LOC = /usr
 
 SRCS = src/audio_monitor.c src/fft.c src/open_terminal.c src/term.c 
 
