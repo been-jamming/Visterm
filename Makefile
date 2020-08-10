@@ -1,4 +1,3 @@
-
 CC	:= gcc
 LFLAGS	:= -lncurses -lSDL2 -lm 
 CFLAGS	:= -Wall #-Werror 
@@ -8,7 +7,7 @@ PROJECT_NAME = visterm
 TARGET_BIN = visterm.out  
 BIN_LOC = /usr
 
-SRCS = src/audio_monitor.c src/fft.c src/open_terminal.c src/term.c 
+SRCS = src/audio_monitor.c src/fft.c src/open_terminal.c src/term.c src/escape_sequence.c
 
 OBJS = $(SRCS:.c=.o)
 

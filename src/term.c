@@ -11,11 +11,13 @@
 #include <SDL2/SDL.h>
 #include "audio_monitor.h"
 #include "fft.h"
+#include "escape_sequence.h"
 
 int open_terminal();
 double *averages;
 FILE *debug_file = NULL;
 int do_ctrl_c = 0;
+int in_escape_sequence = 0;
 
 static int pty_fd;
 
@@ -34,132 +36,6 @@ uint64_t get_nanoseconds(struct timespec t){
 	return 1000000000ULL*t.tv_sec + t.tv_nsec;
 }
 
-void bound_cursor_position(int *y, int *x){
-	if(*y < 0)
-		*y = 0;
-	if(*x < 0)
-		*x = 0;
-	if(*x > COLS){
-		*x = COLS - 1;
-	}
-	if(*y > LINES)
-		*y = LINES - 1;
-}
-
-void parse_escape_sequence(char **str){
-	int n;
-	int m;
-	int y;
-	int x;
-
-	char *orig;
-
-	orig = *str;
-
-	if(**str == 'c'){
-		++*str;
-		erase();
-		if(debug_file)
-			fprintf(debug_file, "ESCAPE SEQUENSE: ERASE\n");
-		return;
-	} else if(**str == '['){
-		++*str;
-		if(**str >= '0' && **str <= '9'){
-			n = strtol(*str, str, 10);
-		} else {
-			n = 1;
-		}
-		if(**str == ';'){
-			++*str;
-			if(**str >= '0' && **str <= '9'){
-				m = strtol(*str, str, 10);
-			} else {
-				m = 1;
-			}
-			if(**str == 'H'){
-				++*str;
-				n--;
-				m--;
-				bound_cursor_position(&n, &m);
-				move(n, m);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE SEQUENCE: move to %d,%d\n", n, m);
-			} else {
-				*str = orig;
-				if(debug_file)
-					fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
-				return;
-			}
-		} else if(**str == 'A'){
-			++*str;
-			getyx(stdscr, y, x);
-			y -= n;
-			bound_cursor_position(&y, &x);
-			move(y, x);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move up %d\n", n);
-		} else if(**str == 'B'){
-			++*str;
-			getyx(stdscr, y, x);
-			y += n;
-			bound_cursor_position(&y, &x);
-			move(y, x);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move down %d\n", n);
-		} else if(**str == 'C'){
-			++*str;
-			getyx(stdscr, y, x);
-			x += n;
-			bound_cursor_position(&y, &x);
-			move(y, x);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move right %d\n", n);
-		} else if(**str == 'D'){
-			++*str;
-			getyx(stdscr, y, x);
-			x -= n;
-			bound_cursor_position(&y, &x);
-			move(y, x);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move left %d\n", n);
-		} else if(**str == 'E'){
-			++*str;
-			getyx(stdscr, y, x);
-			y += n;
-			bound_cursor_position(&y, &x);
-			move(y, 1);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move to beginning of line %d rows down\n", n);
-		} else if(**str == 'F'){
-			++*str;
-			getyx(stdscr, y, x);
-			y -= n;
-			bound_cursor_position(&y, &x);
-			move(y, 1);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move to beginning of line %d rows up\n", n);
-		} else if(**str == 'G'){
-			++*str;
-			getyx(stdscr, y, x);
-			x = n;
-			bound_cursor_position(&y, &x);
-			move(y, x);
-			if(debug_file)
-				fprintf(debug_file, "ESCAPE SEQUENCE: move to x=%d\n", n);
-		} else {
-			*str = orig;
-			if(debug_file)
-				fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
-			return;
-		}
-	} else {
-		*str = orig;
-		if(debug_file)
-			fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
-		return;
-	}
-}
-
 void print_bash_output(char *str){
 	int y;
 	int x;
@@ -167,10 +43,8 @@ void print_bash_output(char *str){
 	if(debug_file)
 		fprintf(debug_file, "PRINT: \"%s\"\n", str);
 	while(*str){
-		if(*str == 0x1B){
-			str++;
-			parse_escape_sequence(&str);
-			str--;
+		if(*str == 0x1B || in_escape_sequence){
+			in_escape_sequence = parse_escape_char(*str, debug_file);
 		} else if(*str == '\a')
 			fputc('\a', stdout);
 		else if(*str == '\b'){
@@ -181,6 +55,9 @@ void print_bash_output(char *str){
 		} else if(*str == '\r'){
 			getyx(stdscr, y, x);
 			move(y, 0);
+		} else if(*str == '\f'){
+			erase();
+			move(0, 0);
 		} else if(*str == '\n'){
 			getyx(stdscr, y, x);
 			move(y, COLS - 1);
@@ -279,7 +156,7 @@ void update_visualizer(){
 }
 
 int main(int argc, char **argv){
-	char buffer[256] = {0};
+	char buffer[8192] = {0};
 	int key_press;
 	char current_char;
 	int chars_read;
@@ -369,10 +246,10 @@ int main(int argc, char **argv){
 		no_wait.tv_usec = 0;
 
 		if(select(pty_fd + 1, &readable, NULL, NULL, &no_wait) > 0){
-			chars_read = read(pty_fd, buffer, 255);
+			chars_read = read(pty_fd, buffer, 8191);
 			if(chars_read > 0){
 				print_bash_output(buffer);
-				memset(buffer, 0, sizeof(char)*256);
+				memset(buffer, 0, sizeof(char)*8192);
 			} else if(chars_read <= 0){
 				exit_terminal(0);
 			}
