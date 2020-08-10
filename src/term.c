@@ -14,6 +14,7 @@
 
 int open_terminal();
 double *averages;
+FILE *debug_file = NULL;
 int do_ctrl_c = 0;
 
 static int pty_fd;
@@ -38,10 +39,11 @@ void bound_cursor_position(int *y, int *x){
 		*y = 0;
 	if(*x < 0)
 		*x = 0;
+	if(*x > COLS){
+		*x = COLS - 1;
+	}
 	if(*y > LINES)
-		*y = LINES;
-	if(*x > COLS)
-		*x = COLS;
+		*y = LINES - 1;
 }
 
 void parse_escape_sequence(char **str){
@@ -57,6 +59,8 @@ void parse_escape_sequence(char **str){
 	if(**str == 'c'){
 		++*str;
 		erase();
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE SEQUENSE: ERASE\n");
 		return;
 	} else if(**str == '['){
 		++*str;
@@ -78,8 +82,12 @@ void parse_escape_sequence(char **str){
 				m--;
 				bound_cursor_position(&n, &m);
 				move(n, m);
+				if(debug_file)
+					fprintf(debug_file, "ESCAPE SEQUENCE: move to %d,%d\n", n, m);
 			} else {
 				*str = orig;
+				if(debug_file)
+					fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
 				return;
 			}
 		} else if(**str == 'A'){
@@ -88,48 +96,66 @@ void parse_escape_sequence(char **str){
 			y -= n;
 			bound_cursor_position(&y, &x);
 			move(y, x);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move up %d\n", n);
 		} else if(**str == 'B'){
 			++*str;
 			getyx(stdscr, y, x);
 			y += n;
 			bound_cursor_position(&y, &x);
 			move(y, x);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move down %d\n", n);
 		} else if(**str == 'C'){
 			++*str;
 			getyx(stdscr, y, x);
 			x += n;
 			bound_cursor_position(&y, &x);
 			move(y, x);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move right %d\n", n);
 		} else if(**str == 'D'){
 			++*str;
 			getyx(stdscr, y, x);
 			x -= n;
 			bound_cursor_position(&y, &x);
 			move(y, x);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move left %d\n", n);
 		} else if(**str == 'E'){
 			++*str;
 			getyx(stdscr, y, x);
 			y += n;
 			bound_cursor_position(&y, &x);
 			move(y, 1);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move to beginning of line %d rows down\n", n);
 		} else if(**str == 'F'){
 			++*str;
 			getyx(stdscr, y, x);
 			y -= n;
 			bound_cursor_position(&y, &x);
 			move(y, 1);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move to beginning of line %d rows up\n", n);
 		} else if(**str == 'G'){
 			++*str;
 			getyx(stdscr, y, x);
 			x = n;
 			bound_cursor_position(&y, &x);
 			move(y, x);
+			if(debug_file)
+				fprintf(debug_file, "ESCAPE SEQUENCE: move to x=%d\n", n);
 		} else {
 			*str = orig;
+			if(debug_file)
+				fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
 			return;
 		}
 	} else {
 		*str = orig;
+		if(debug_file)
+			fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE\n");
 		return;
 	}
 }
@@ -138,6 +164,8 @@ void print_bash_output(char *str){
 	int y;
 	int x;
 
+	if(debug_file)
+		fprintf(debug_file, "PRINT: \"%s\"\n", str);
 	while(*str){
 		if(*str == 0x1B){
 			str++;
@@ -150,7 +178,14 @@ void print_bash_output(char *str){
 			x--;
 			bound_cursor_position(&y, &x);
 			move(y, x);
-		} else if(*str != '\r')
+		} else if(*str == '\r'){
+			getyx(stdscr, y, x);
+			move(y, 0);
+		} else if(*str == '\n'){
+			getyx(stdscr, y, x);
+			move(y, COLS - 1);
+			printw("\n");
+		} else
 			printw("%c", (int) *str);
 		str++;
 	}
@@ -163,6 +198,8 @@ void exit_terminal(){
 	close(pty_fd);
 	free(frequencies);
 	free(samples);
+	if(debug_file)
+		fclose(debug_file);
 	printf("Terminal closed\n");
 
 	exit(0);
@@ -256,9 +293,16 @@ int main(int argc, char **argv){
 	struct timeval no_wait;
 	sigset_t block_sigint;
 
+	if(argc >= 2 && !strcmp(argv[1], "--debug")){
+		printf("Opening in debug mode\n");
+		debug_file = fopen("visterm_debug", "w");
+	}
+
 	if(audio_monitor_setup(44100/4, 10)){
 		fprintf(stderr, "Error: could not setup audio monitor\n");
-		exit(1);
+		if(debug_file)
+			fclose(debug_file);
+		return 1;
 	}
 
 	sigint_action.sa_handler = ctrl_c;
@@ -273,12 +317,16 @@ int main(int argc, char **argv){
 	if(!has_colors()){
 		endwin();
 		fprintf(stderr, "Error: the terminal does not support colors\n");
+		if(debug_file)
+			fclose(debug_file);
 		return 1;
 	}
 	pty_fd = open_terminal();
 	if(pty_fd == -1 || fcntl(pty_fd, F_SETFL, O_NONBLOCK) < 0){
 		endwin();
 		fprintf(stderr, "Error: Could not make read-end of pipe non/blocking\n");
+		if(debug_file)
+			fclose(debug_file);
 		return 1;
 	}
 
@@ -310,7 +358,7 @@ int main(int argc, char **argv){
 		while((key_press = getch()) != ERR){
 			current_char = key_press;
 			if(current_char == 0x7F)
-				current_char = '\b';
+				current_char = 0x7F;
 			if(write(pty_fd, &current_char, 1) < 0){
 				fprintf(stderr, "Error: Failed to write to terminal device\n");
 			}
