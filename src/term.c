@@ -44,8 +44,6 @@ void print_bash_output(char *str){
 	int y;
 	int x;
 
-	if(debug_file)
-		fprintf(debug_file, "PRINT: \"%s\"\n", str);
 	while(*str){
 		if(*str == 0x1B || in_escape_sequence){
 			in_escape_sequence = parse_escape_char(*str, debug_file);
@@ -66,8 +64,16 @@ void print_bash_output(char *str){
 			getyx(stdscr, y, x);
 			move(y, COLS - 1);
 			printw("\n");
-		} else
-			printw("%c", (int) *str);
+		} else {
+			attrset(A_NORMAL);
+			attron(global_attr);
+			if(debug_file){
+				fprintf(debug_file, "PRINT '%c': %d %d\n", *str, (global_attr&A_BOLD) != 0, (global_attr&A_REVERSE) != 0);
+				fflush(debug_file);
+			}
+			addch(*str);
+			refresh();
+		}
 		str++;
 	}
 }
@@ -107,6 +113,17 @@ double average_amplitudes(int last_freq_index, int freq_index){
 	return sum/(freq_index - last_freq_index);
 }
 
+void place_cursor(){
+	int y;
+	int x;
+	chtype char_data;
+
+	getyx(stdscr, y, x);
+	char_data = inch();
+	addch(char_data^A_REVERSE);
+	move(y, x);
+}
+
 void set_char_background(int y, int x, int background_color_start){
 	int prev_curs_x;
 	int prev_curs_y;
@@ -132,6 +149,7 @@ void set_char_background(int y, int x, int background_color_start){
 	} else {
 		return;
 	}
+	attrset(A_NORMAL);
 	mvaddch(y, x, (char_data&~A_COLOR) | COLOR_PAIR(new_pair_num));
 	move(prev_curs_y, prev_curs_x);
 }
@@ -273,6 +291,8 @@ int main(int argc, char **argv){
 
 	averages = calloc(COLS, sizeof(double));
 
+	curs_set(0);
+	place_cursor();
 	clock_gettime(CLOCK_MONOTONIC, &last_time);
 	while(1){
 		sigprocmask(SIG_SETMASK, &(sigint_action.sa_mask), NULL);
@@ -294,16 +314,15 @@ int main(int argc, char **argv){
 		if(select(pty_fd + 1, &readable, NULL, NULL, &no_wait) > 0){
 			chars_read = read(pty_fd, buffer, 8191);
 			if(chars_read > 0){
+				place_cursor();
 				print_bash_output(buffer);
+				place_cursor();
 				memset(buffer, 0, sizeof(char)*8192);
 			} else if(chars_read <= 0){
 				exit_terminal(0);
 			}
 		}
-		//set_char_background(0, 0, color_pairs_green);
-		curs_set(0);
 		update_visualizer();
-		curs_set(1);
 		refresh();
 		clock_gettime(CLOCK_MONOTONIC, &current_time);
 		last_nanoseconds = get_nanoseconds(last_time);

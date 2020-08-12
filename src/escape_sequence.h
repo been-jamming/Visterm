@@ -12,3 +12,5 @@ extern int color_pairs_start;
 extern int color_pairs_red;
 extern int color_pairs_yellow;
 extern int color_pairs_green;
+
+extern int global_attr;

@@ -19,6 +19,7 @@ int color_pairs_start;
 int color_pairs_red;
 int color_pairs_yellow;
 int color_pairs_green;
+int global_attr = 0;
 static int args[256];
 static int current_arg = 0;
 extern int red_background;
@@ -26,6 +27,18 @@ extern int yellow_background;
 extern int green_background;
 
 hollow_list *pairs_table = NULL;
+
+static void global_set_attr(int attr){
+	global_attr |= attr;
+}
+
+static void global_unset_attr(int attr){
+	global_attr &= ~attr;
+}
+
+static void global_set_color(int color){
+	global_attr = (global_attr&~A_COLOR) | color;
+}
 
 int get_global_color(){
 	return COLOR_PAIR(((global_foreground_color&7) | (global_background_color<<3)) + color_pairs_start);
@@ -59,7 +72,8 @@ void create_color_pairs(int pairs_start){
 		init_pair(i, c&7, green_background);
 		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
 	}
-	attron(get_global_color());
+	global_attr = A_NORMAL;
+	global_set_color(get_global_color());
 }
 
 void sgr_nothing(void){
@@ -68,134 +82,140 @@ void sgr_nothing(void){
 }
 
 void sgr_reset(void){
-	attrset(A_NORMAL);
+	global_attr = A_NORMAL;
 	global_foreground_color = COLOR_WHITE;
 	global_background_color = COLOR_BLACK;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_bold(void){
-	attron(A_BOLD);
+	global_set_attr(A_BOLD);
+	global_unset_attr(A_DIM);
 }
 
 void sgr_faint(void){
-	attron(A_DIM);
+	global_set_attr(A_DIM);
+	global_unset_attr(A_BOLD);
 }
 
 void sgr_italic(void){
-	attron(A_ITALIC);
+	global_set_attr(A_ITALIC);
 }
 
 void sgr_underline(void){
-	attron(A_UNDERLINE);
+	global_set_attr(A_UNDERLINE);
 }
 
 void sgr_blink(void){
-	attron(A_BLINK);
+	global_set_attr(A_BLINK);
 }
 
 void sgr_reverse(void){
-	attron(A_REVERSE);
+	global_set_attr(A_REVERSE);
+}
+
+void sgr_no_bold(void){
+	global_unset_attr(A_BOLD);
 }
 
 void sgr_normal_intensity(void){
-	attroff(A_DIM | A_BOLD);
+	global_unset_attr(A_DIM | A_BOLD);
 }
 
 void sgr_no_italic(void){
-	attroff(A_ITALIC);
+	global_unset_attr(A_ITALIC);
 }
 
 void sgr_no_underline(void){
-	attroff(A_UNDERLINE);
+	global_unset_attr(A_UNDERLINE);
 }
 
 void sgr_no_blink(void){
-	attroff(A_BLINK);
+	global_unset_attr(A_BLINK);
 }
 
 void sgr_no_reverse(void){
-	attroff(A_REVERSE);
+	global_unset_attr(A_REVERSE);
 }
 
 void sgr_foreground_black(void){
 	global_foreground_color = COLOR_BLACK;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_red(void){
 	global_foreground_color = COLOR_RED;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_green(void){
 	global_foreground_color = COLOR_GREEN;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_yellow(void){
 	global_foreground_color = COLOR_YELLOW;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_blue(void){
 	global_foreground_color = COLOR_BLUE;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_magenta(void){
 	global_foreground_color = COLOR_MAGENTA;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_cyan(void){
 	global_foreground_color = COLOR_CYAN;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_foreground_white(void){
 	global_foreground_color = COLOR_WHITE;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_black(void){
 	global_background_color = COLOR_BLACK;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_red(void){
 	global_background_color = COLOR_RED;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_green(void){
 	global_background_color = COLOR_GREEN;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_yellow(void){
 	global_background_color = COLOR_YELLOW;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_blue(void){
 	global_background_color = COLOR_BLUE;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_magenta(void){
 	global_background_color = COLOR_MAGENTA;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_cyan(void){
 	global_background_color = COLOR_CYAN;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 void sgr_background_white(void){
 	global_background_color = COLOR_WHITE;
-	attron(get_global_color());
+	global_set_color(get_global_color());
 }
 
 static void (*sgr_functions[])(void) = {
@@ -216,7 +236,7 @@ static void (*sgr_functions[])(void) = {
 	//
 
 	sgr_nothing,//Fraktur
-	sgr_nothing,//Double underline or bold off... ?
+	sgr_no_bold,//Double underline or bold off... ?
 	sgr_normal_intensity,
 	sgr_no_italic,
 	sgr_no_underline,
@@ -285,6 +305,10 @@ int parse_escape_char(char c, FILE *debug_file){
 		case ESCAPE:
 			if(c == 'c'){
 				erase();
+				global_attr = A_NORMAL;
+				global_foreground_color = COLOR_WHITE;
+				global_background_color = COLOR_BLACK;
+				global_set_color(get_global_color());
 				if(debug_file)
 					fprintf(debug_file, "ESCAPE: erase\n");
 				current_parse_state = NONE;
@@ -434,6 +458,7 @@ int parse_escape_char(char c, FILE *debug_file){
 						clrtoeol();
 						break;
 					case 1:
+						attrset(A_NORMAL);
 						getyx(stdscr, y, x);
 						move(y, 0);
 						for(i = 0; i < x; i++){
