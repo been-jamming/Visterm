@@ -119,8 +119,6 @@ void set_char_background(int y, int x, int background_color_start){
 	char_data = mvinch(y, x);
 	color_data = char_data&A_COLOR;
 	pair_num = read_hollow_list(pairs_table, color_data, -1);
-	if(debug_file)
-		fprintf(debug_file, "%d %d %d %d %d %d\n", pair_num, color_pairs_start, color_pairs_red, color_pairs_yellow, color_pairs_green, char_data&A_CHARTEXT);
 	if(pair_num == -1)
 		return;
 	if(pair_num < color_pairs_red && pair_num >= color_pairs_start){
@@ -301,7 +299,9 @@ int main(int argc, char **argv){
 			}
 		}
 		//set_char_background(0, 0, color_pairs_green);
+		curs_set(0);
 		update_visualizer();
+		curs_set(1);
 		refresh();
 		clock_gettime(CLOCK_MONOTONIC, &current_time);
 		last_nanoseconds = get_nanoseconds(last_time);
