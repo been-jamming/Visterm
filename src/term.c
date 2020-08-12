@@ -279,7 +279,11 @@ int main(int argc, char **argv){
 		while((key_press = getch()) != ERR){
 			current_char = key_press;
 			if(current_char == 0x7F)
-				current_char = 0x7F;
+				current_char = '\b';
+			else if(current_char == '\n')
+				current_char = '\r';
+			if(debug_file)
+				fprintf(debug_file, "INPUT: '%x', '%c'\n", current_char, current_char);
 			if(write(pty_fd, &current_char, 1) < 0){
 				fprintf(stderr, "Error: Failed to write to terminal device\n");
 			}
