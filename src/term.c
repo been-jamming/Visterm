@@ -72,7 +72,6 @@ void print_bash_output(char *str){
 				fflush(debug_file);
 			}
 			addch(*str);
-			refresh();
 		}
 		str++;
 	}
