@@ -11,6 +11,7 @@
 #include <SDL2/SDL.h>
 #include "audio_monitor.h"
 #include "fft.h"
+#include "hollow_list.h"
 #include "escape_sequence.h"
 
 int open_terminal();
@@ -18,6 +19,9 @@ double *averages;
 FILE *debug_file = NULL;
 int do_ctrl_c = 0;
 int in_escape_sequence = 0;
+int red_background;
+int yellow_background;
+int green_background;
 
 static int pty_fd;
 
@@ -68,6 +72,10 @@ void print_bash_output(char *str){
 	}
 }
 
+static void blank_free(int i){
+
+}
+
 void exit_terminal(){
 	refresh();
 	endwin();
@@ -75,6 +83,8 @@ void exit_terminal(){
 	close(pty_fd);
 	free(frequencies);
 	free(samples);
+	if(pairs_table)
+		free_hollow_list(pairs_table, blank_free);
 	if(debug_file)
 		fclose(debug_file);
 	printf("Terminal closed\n");
@@ -97,25 +107,51 @@ double average_amplitudes(int last_freq_index, int freq_index){
 	return sum/(freq_index - last_freq_index);
 }
 
+void set_char_background(int y, int x, int background_color_start){
+	int prev_curs_x;
+	int prev_curs_y;
+	chtype char_data;
+	chtype color_data;
+	int pair_num;
+	int new_pair_num;
+
+	getyx(stdscr, prev_curs_y, prev_curs_x);
+	char_data = mvinch(y, x);
+	color_data = char_data&A_COLOR;
+	pair_num = read_hollow_list(pairs_table, color_data, -1);
+	if(debug_file)
+		fprintf(debug_file, "%d %d %d %d %d %d\n", pair_num, color_pairs_start, color_pairs_red, color_pairs_yellow, color_pairs_green, char_data&A_CHARTEXT);
+	if(pair_num == -1)
+		return;
+	if(pair_num < color_pairs_red && pair_num >= color_pairs_start){
+		new_pair_num = background_color_start + pair_num - color_pairs_start;
+	} else if(pair_num < color_pairs_yellow){
+		new_pair_num = background_color_start + pair_num - color_pairs_red;
+	} else if(pair_num < color_pairs_green){
+		new_pair_num = background_color_start + pair_num - color_pairs_yellow;
+	} else if(pair_num > color_pairs_green){
+		new_pair_num = background_color_start + pair_num - color_pairs_green;
+	} else {
+		return;
+	}
+	mvaddch(y, x, (char_data&~A_COLOR) | COLOR_PAIR(new_pair_num));
+	move(prev_curs_y, prev_curs_x);
+}
+
+void draw_to_right(int y, int x, int end_x, int background_color_start){
+	while(x <= end_x){
+		set_char_background(y, x, background_color_start);
+		x++;
+	}
+}
+
 void draw_bar(int x, int y, int term_width){
 	if(x > term_width - 1)
 		x = term_width - 1;
-	mvchgat(y, 0, -1, A_NORMAL, COLOR_BLACK, NULL);
-	/*
-	if(x > (term_width - 1)*2/3){
-		mvchgat(y, term_width - 1 - x, -1, A_NORMAL, 2, NULL);
-		mvchgat(y, (term_width - 1)/3, -1, A_NORMAL, 3, NULL);
-		mvchgat(y, (term_width - 1)*2/3, -1, A_NORMAL, 4, NULL);
-	} else if(x > (term_width - 1)/5){
-		mvchgat(y, term_width - 1 - x, -1, A_NORMAL, 3, NULL);
-		mvchgat(y, (term_width - 1)*4/5, -1, A_NORMAL, 4, NULL);
-	} else {
-		mvchgat(y, term_width - 1 - x, -1, A_NORMAL, 4, NULL);
-	}
-	*/
-	mvchgat(y, term_width - 1 - x, -1, A_NORMAL, 2, NULL);
-	mvchgat(y, term_width - 1 - x*2/3, -1, A_NORMAL, 3, NULL);
-	mvchgat(y, term_width - 1 - x/3, -1, A_NORMAL, 4, NULL);
+	draw_to_right(y, 0, term_width - 2 - x, color_pairs_start);
+	draw_to_right(y, term_width - 1 - x, term_width - 2 - x*2/3, color_pairs_red);
+	draw_to_right(y, term_width - 1 - x*2/3, term_width - 2 - x/3, color_pairs_yellow);
+	draw_to_right(y, term_width - 1 - x/3, term_width - 1, color_pairs_green);
 }
 
 void update_visualizer(){
@@ -131,6 +167,7 @@ void update_visualizer(){
 	int orig_y;
 	int orig_x;
 
+	scrollok(stdscr, 0);
 	getyx(stdscr, orig_y, orig_x);
 
 	SDL_LockAudioDevice(recording_device_id);
@@ -153,6 +190,7 @@ void update_visualizer(){
 	}
 
 	move(orig_y, orig_x);
+	scrollok(stdscr, 1);
 }
 
 int main(int argc, char **argv){
@@ -214,17 +252,25 @@ int main(int argc, char **argv){
 		init_pair(2, COLOR_WHITE, 52);
 		init_pair(3, COLOR_WHITE, 58);
 		init_pair(4, COLOR_WHITE, 22);
+		red_background = 52;
+		yellow_background = 58;
+		green_background = 22;
 	} else {
 		init_pair(1, COLOR_WHITE, COLOR_BLACK);
 		init_pair(2, COLOR_WHITE, COLOR_RED);
 		init_pair(3, COLOR_WHITE, COLOR_YELLOW);
 		init_pair(4, COLOR_WHITE, COLOR_GREEN);
+		red_background = COLOR_RED;
+		yellow_background = COLOR_YELLOW;
+		green_background = COLOR_GREEN;
 	}
-	bkgd(COLOR_PAIR(1));
 	noecho();
 	nodelay(stdscr, 1);
 	scrollok(stdscr, 1);
-	attron(COLOR_PAIR(1));
+	create_color_pairs(5);
+	global_foreground_color = COLOR_WHITE;
+	global_background_color = COLOR_BLACK;
+	bkgd(get_global_color());
 	erase();
 
 	averages = calloc(COLS, sizeof(double));
@@ -254,6 +300,7 @@ int main(int argc, char **argv){
 				exit_terminal(0);
 			}
 		}
+		//set_char_background(0, 0, color_pairs_green);
 		update_visualizer();
 		refresh();
 		clock_gettime(CLOCK_MONOTONIC, &current_time);
@@ -275,4 +322,3 @@ int main(int argc, char **argv){
 		}
 	}
 }
-

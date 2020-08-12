@@ -20,7 +20,7 @@ int open_terminal(){
 	char home_buffer[1024];
 	char *path;
 	char *home;
-	char *env[] = {"TERM=dumb", "COLORTERM=", 0, 0, 0};
+	char *env[] = {"TERM=visterm", "COLORTERM=8color", 0, 0, 0};
 	struct winsize size;
 
 	path = getenv("PATH");
