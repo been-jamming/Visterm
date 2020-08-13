@@ -7,6 +7,7 @@ void create_color_pairs(int pairs_start);
 extern int global_foreground_color;
 extern int global_background_color;
 extern hollow_list *pairs_table;
+extern int auto_margins;
 
 extern int color_pairs_start;
 extern int color_pairs_red;

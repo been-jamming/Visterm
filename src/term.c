@@ -205,7 +205,7 @@ void update_visualizer(){
 	}
 
 	move(orig_y, orig_x);
-	scrollok(stdscr, 1);
+	scrollok(stdscr, auto_margins);
 }
 
 int main(int argc, char **argv){
@@ -297,12 +297,18 @@ int main(int argc, char **argv){
 		sigprocmask(SIG_SETMASK, &(sigint_action.sa_mask), NULL);
 		while((key_press = getch()) != ERR){
 			current_char = key_press;
-			if(current_char == '\n')
-				current_char = '\r';
-			if(debug_file)
-				fprintf(debug_file, "INPUT: '%x', '%c'\n", current_char, current_char);
-			if(write(pty_fd, &current_char, 1) < 0){
-				fprintf(stderr, "Error: Failed to write to terminal device\n");
+			if(current_char == '\n'){
+				if(debug_file)
+					fprintf(debug_file, "INPUT: enter\n");
+				if(write(pty_fd, "\r", 1) < 0){
+					fprintf(stderr, "Error: failed to write to terminal device\n");
+				}
+			} else {
+				if(debug_file)
+					fprintf(debug_file, "INPUT: '%x', '%c'\n", current_char, current_char);
+				if(write(pty_fd, &current_char, 1) < 0){
+					fprintf(stderr, "Error: Failed to write to terminal device\n");
+				}
 			}
 		}
 		FD_ZERO(&readable);

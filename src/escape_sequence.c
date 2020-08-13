@@ -7,6 +7,7 @@ enum parse_state{
 	NONE,
 	ESCAPE,
 	CSI,
+	CSI_IMP_DEFINED,
 	ARG,
 	SEMICOLON,
 };
@@ -20,6 +21,7 @@ int color_pairs_red;
 int color_pairs_yellow;
 int color_pairs_green;
 int global_attr = 0;
+int auto_margins = 1;
 static int args[256];
 static int current_arg = 0;
 extern int red_background;
@@ -324,6 +326,7 @@ int parse_escape_char(char c, FILE *debug_file){
 				current_arg = 0;
 			}
 			break;
+		case CSI_IMP_DEFINED:
 		case ARG:
 			if(c >= '0' && c <= '9'){
 				args[current_arg] = args[current_arg]*10 + c - '0';
@@ -331,8 +334,26 @@ int parse_escape_char(char c, FILE *debug_file){
 			}
 			//No break here, we continue into the CSI and SEMICOLON cases
 		case CSI:
+			if(c == '?'){
+				current_parse_state = CSI_IMP_DEFINED;
+				break;
+			}
 		case SEMICOLON:
-			if(c == ';'){
+			if(c == 'h' && current_parse_state == CSI_IMP_DEFINED){
+				if(debug_file)
+					fprintf(debug_file, "ESCAPE: turning on auto margins\n");
+				auto_margins = 1;
+				scrollok(stdscr, 1);
+				current_parse_state = NONE;
+				current_arg = 0;
+			} else if(c == 'l' && current_parse_state == CSI_IMP_DEFINED){
+				if(debug_file)
+					fprintf(debug_file, "ESCAPE: turning off auto margins\n");
+				auto_margins = 0;
+				scrollok(stdscr, 0);
+				current_parse_state = NONE;
+				current_arg = 0;
+			} else if(c == ';'){
 				current_parse_state = SEMICOLON;
 				if(current_arg < 255)
 					current_arg++;
