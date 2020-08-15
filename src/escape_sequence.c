@@ -471,7 +471,6 @@ int parse_escape_char(char c, FILE *debug_file){
 				current_parse_state = NONE;
 				current_arg = 0;
 			} else if(c == 'K'){
-				curs_set(0);
 				if(args[0] < 0)
 					args[0] = 0;
 				switch(args[0]){
@@ -492,7 +491,6 @@ int parse_escape_char(char c, FILE *debug_file){
 						erase();
 						break;
 				}
-				curs_set(1);
 				current_parse_state = NONE;
 				current_arg = 0;
 			} else {

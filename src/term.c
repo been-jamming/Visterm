@@ -119,6 +119,7 @@ void place_cursor(){
 
 	getyx(stdscr, y, x);
 	char_data = inch();
+	attrset(A_NORMAL);
 	addch(char_data^A_REVERSE);
 	move(y, x);
 }
