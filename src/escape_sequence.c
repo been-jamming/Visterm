@@ -6,10 +6,14 @@
 enum parse_state{
 	NONE,
 	ESCAPE,
-	CSI,
+	CSI_PARAMETERS,
+	CSI_INTERMEDIATE,
 	CSI_IMP_DEFINED,
-	ARG,
+	CSI,
+	ST,
+	ST_END,
 	SEMICOLON,
+	ARG
 };
 
 static enum parse_state current_parse_state = NONE;
@@ -22,6 +26,12 @@ int color_pairs_yellow;
 int color_pairs_green;
 int global_attr = 0;
 int auto_margins = 1;
+
+static char csi_parameters[256];
+static char csi_intermediate_bytes[256];
+static char csi_final_byte;
+static int csi_byte_index = 0;
+
 static int args[256];
 static int current_arg = 0;
 extern int red_background;
@@ -55,23 +65,9 @@ void create_color_pairs(int pairs_start){
 	global_foreground_color = COLOR_WHITE;
 	global_background_color = COLOR_BLACK;
 	color_pairs_start = pairs_start;
-	for(i = color_pairs_start, c = 0; i < color_pairs_start + 64; i++, c++){
+	c = 0;
+	for(i = color_pairs_start; i < color_pairs_start + 64; i++, c++){
 		init_pair(i, c&7, c>>3);
-		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
-	}
-	color_pairs_red = i;
-	for(i = color_pairs_red, c = 0; i < color_pairs_red + 64; i++, c++){
-		init_pair(i, c&7, red_background);
-		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
-	}
-	color_pairs_yellow = i;
-	for(i = color_pairs_yellow, c = 0; i < color_pairs_yellow + 64; i++, c++){
-		init_pair(i, c&7, yellow_background);
-		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
-	}
-	color_pairs_green = i;
-	for(i = color_pairs_green, c = 0; i < color_pairs_green + 64; i++, c++){
-		init_pair(i, c&7, green_background);
 		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
 	}
 	global_attr = A_NORMAL;
@@ -290,6 +286,162 @@ void bound_cursor_position(int *y, int *x){
 		*y = LINES - 1;
 }
 
+int process_control_parameters(FILE *debug_file){
+	int index = 0;
+	int byte_index = 0;
+	int sign = 1;
+
+	args[0] = 0;
+	if(debug_file)
+		fprintf(debug_file, "CONTROL PARAMETERS: '%s'\n", csi_parameters);
+	while(csi_parameters[byte_index]){
+		if(csi_parameters[byte_index] == ';'){
+			if(index < 255){
+				index++;
+			}
+			args[index] = 0;
+			sign = 1;
+		} else if(csi_parameters[byte_index] >= '0' && csi_parameters[byte_index] <= '9'){
+			args[index] *= 10;
+			args[index] += (csi_parameters[byte_index] - '0')*sign;
+		} else if(csi_parameters[byte_index] == '-'){
+			sign = -1;
+		}
+		byte_index++;
+	}
+
+	return index + 1;
+}
+
+void process_control_sequence(FILE *debug_file){
+	int num_args = process_control_parameters(debug_file);
+	int x, y, i;
+
+	if(csi_final_byte == 'h'){
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: turning on auto margins\n");
+		auto_margins = 1;
+		scrollok(stdscr, 1);
+	} else if(csi_final_byte == 'l'){
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: turning off auto margins\n");
+		auto_margins = 0;
+		scrollok(stdscr, 0);
+	} else if(csi_final_byte == 'A'){
+		if(args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		y -= args[0];
+		bound_cursor_position(&y, &x);
+		move(y, x);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move up %d\n", args[0]);
+	} else if(csi_final_byte == 'B'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		y += args[0];
+		bound_cursor_position(&y, &x);
+		move(y, x);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move down %d\n", args[0]);
+	} else if(csi_final_byte == 'C'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		x += args[0];
+		bound_cursor_position(&y, &x);
+		move(y, x);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move right %d\n", args[0]);
+	} else if(csi_final_byte == 'D'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		x -= args[0];
+		bound_cursor_position(&y, &x);
+		move(y, x);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move left %d\n", args[0]);
+	} else if(csi_final_byte == 'E'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		y += args[0];
+		bound_cursor_position(&y, &x);
+		move(y, 1);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move to beginning of line %d rows down\n", args[0]);
+	} else if(csi_final_byte == 'F'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		y -= args[0];
+		bound_cursor_position(&y, &x);
+		move(y, 1);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move to beginning of line %d rows up\n", args[0]);
+	} else if(csi_final_byte == 'G'){
+		if(!csi_parameters[0] || args[0] <= 0)
+			args[0] = 1;
+		getyx(stdscr, y, x);
+		x = args[0] - 1;
+		bound_cursor_position(&y, &x);
+		move(y, x);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move to column %d\n", args[0]);
+	} else if(csi_final_byte == 'H'){
+		if(args[0] <= 0)
+			args[0] = 1;
+		if(args[1] <= 0)
+			args[1] = 1;
+		args[0]--;
+		args[1]--;
+		bound_cursor_position(args, args + 1);
+		move(args[0], args[1]);
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: move to %d, %d\n", args[0], args[1]);
+	} else if(csi_final_byte == 'm'){
+		if(debug_file)
+			fprintf(debug_file, "ESCAPE: srg ");
+		for(i = 0; i < num_args; i++){
+			if(args[i] < 0)
+				args[i] = 0;
+			if(args[i] < sizeof(sgr_functions)/sizeof(sgr_functions[0])){
+				if(debug_file)
+					fprintf(debug_file, "%d ", args[i]);
+				sgr_functions[args[i]]();
+			}
+		}
+		if(debug_file)
+			fprintf(debug_file, "\n");
+	} else if(csi_final_byte == 'K'){
+		if(args[0] < 0)
+			args[0] = 0;
+		switch(args[0]){
+			case 0:
+				clrtoeol();
+				break;
+			case 1:
+				attrset(A_NORMAL);
+				getyx(stdscr, y, x);
+				move(y, 0);
+				for(i = 0; i < x; i++){
+					printw(" ");
+				}
+				move(y, x);
+				break;
+			case 2:
+			case 3:
+				erase();
+				break;
+		}
+	} else {
+		if(debug_file)
+			fprintf(debug_file, "UNKNOWN ESCAPE CSI %c\n", csi_final_byte);
+	}
+}
+
 int parse_escape_char(char c, FILE *debug_file){
 	int x;
 	int y;
@@ -316,9 +468,14 @@ int parse_escape_char(char c, FILE *debug_file){
 				current_parse_state = NONE;
 				current_arg = 0;
 			} else if(c == '['){
-				current_parse_state = CSI;
+				current_parse_state = CSI_PARAMETERS;
+				csi_parameters[0] = '\0';
+				csi_intermediate_bytes[0] = '\0';
 				args[0] = -1;
 				args[1] = -1;
+				csi_byte_index = 0;
+			} else if(c == ']'){
+				current_parse_state = ST;
 			} else {
 				if(debug_file)
 					fprintf(debug_file, "UNKNOWN ESCAPE SEQUENCE %c\n", c);
@@ -326,7 +483,53 @@ int parse_escape_char(char c, FILE *debug_file){
 				current_arg = 0;
 			}
 			break;
-		case CSI_IMP_DEFINED:
+		case ST:
+			if(c == 0x1B){
+				current_parse_state = ST_END;
+			}
+			break;
+		case ST_END:
+			if(c == '\\'){
+				current_parse_state = NONE;
+			} else {
+				current_parse_state = ST;
+			}
+			break;
+		case CSI_PARAMETERS:
+			if(c >= 0x30 && c <= 0x3F){
+				csi_byte_index++;
+				if(debug_file)
+					fprintf(debug_file, "PARAMETER BYTE RECEIVED: '%c' %d\n", c, csi_byte_index);
+				if(csi_byte_index < 256){
+					csi_parameters[csi_byte_index - 1] = c;
+					csi_parameters[csi_byte_index] = '\0';
+				}
+			} else if(c >= 0x20 && c <= 0x2F){
+				if(debug_file)
+					fprintf(debug_file, "INTERMEDIATE BYTE RECEIVED: '%c'\n", c);
+				csi_intermediate_bytes[0] = c;
+				csi_intermediate_bytes[1] = '\0';
+				csi_byte_index = 1;
+				current_parse_state = CSI_INTERMEDIATE;
+			} else if(c >= 0x40 && c <= 0x7E){
+				csi_final_byte = c;
+				process_control_sequence(debug_file);
+				current_parse_state = NONE;
+			}
+			break;
+		case CSI_INTERMEDIATE:
+			if(c >= 0x20 && c <= 0x2F){
+				csi_byte_index++;
+				if(csi_byte_index < 256){
+					csi_intermediate_bytes[csi_byte_index - 1] = c;
+					csi_intermediate_bytes[csi_byte_index] = '\0';
+				}
+			} else if(c >= 0x40 && c <= 0x7E){
+				csi_final_byte = c;
+				process_control_sequence(debug_file);
+				current_parse_state = NONE;
+			}
+			break;
 		case ARG:
 			if(c >= '0' && c <= '9'){
 				args[current_arg] = args[current_arg]*10 + c - '0';
@@ -500,9 +703,6 @@ int parse_escape_char(char c, FILE *debug_file){
 				current_arg = 0;
 			}
 			break;
-		default:
-			current_parse_state = NONE;
-			current_arg = 0;
 	}
 
 	if(current_parse_state == NONE)

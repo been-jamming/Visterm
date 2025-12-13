@@ -263,27 +263,10 @@ int main(int argc, char **argv){
 
 	cbreak();
 	start_color();
-	if(COLORS >= 256){
-		init_pair(1, COLOR_WHITE, COLOR_BLACK);
-		init_pair(2, COLOR_WHITE, 52);
-		init_pair(3, COLOR_WHITE, 58);
-		init_pair(4, COLOR_WHITE, 22);
-		red_background = 52;
-		yellow_background = 58;
-		green_background = 22;
-	} else {
-		init_pair(1, COLOR_WHITE, COLOR_BLACK);
-		init_pair(2, COLOR_WHITE, COLOR_RED);
-		init_pair(3, COLOR_WHITE, COLOR_YELLOW);
-		init_pair(4, COLOR_WHITE, COLOR_GREEN);
-		red_background = COLOR_RED;
-		yellow_background = COLOR_YELLOW;
-		green_background = COLOR_GREEN;
-	}
 	noecho();
 	nodelay(stdscr, 1);
 	scrollok(stdscr, 1);
-	create_color_pairs(5);
+	create_color_pairs(1);
 	global_foreground_color = COLOR_WHITE;
 	global_background_color = COLOR_BLACK;
 	bkgd(get_global_color());
@@ -325,10 +308,10 @@ int main(int argc, char **argv){
 				place_cursor();
 				memset(buffer, 0, sizeof(char)*8192);
 			} else if(chars_read <= 0){
-				exit_terminal(0);
+				exit_terminal();
 			}
 		}
-		update_visualizer();
+		//update_visualizer();
 		refresh();
 		clock_gettime(CLOCK_MONOTONIC, &current_time);
 		last_nanoseconds = get_nanoseconds(last_time);
