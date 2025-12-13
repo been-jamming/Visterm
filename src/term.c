@@ -62,8 +62,14 @@ void print_bash_output(char *str){
 			move(0, 0);
 		} else if(*str == '\n'){
 			getyx(stdscr, y, x);
-			move(y, COLS - 1);
-			printw("\n");
+			if(y >= LINES - 1){
+				scroll(stdscr);
+				move(LINES - 1, 0);
+			} else {
+				move(y + 1, 0);
+			}
+			//move(y, COLS - 1);
+			//printw("\n");
 		} else {
 			attrset(A_NORMAL);
 			attron(global_attr);
@@ -183,7 +189,7 @@ void update_visualizer(){
 	int orig_y;
 	int orig_x;
 
-	scrollok(stdscr, 0);
+	scrollok(stdscr, 1);
 	getyx(stdscr, orig_y, orig_x);
 
 	SDL_LockAudioDevice(recording_device_id);

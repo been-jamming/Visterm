@@ -326,7 +326,7 @@ void process_control_sequence(FILE *debug_file){
 		if(debug_file)
 			fprintf(debug_file, "ESCAPE: turning off auto margins\n");
 		auto_margins = 0;
-		scrollok(stdscr, 0);
+		//scrollok(stdscr, 0);
 	} else if(csi_final_byte == 'A'){
 		if(args[0] <= 0)
 			args[0] = 1;
@@ -553,7 +553,7 @@ int parse_escape_char(char c, FILE *debug_file){
 				if(debug_file)
 					fprintf(debug_file, "ESCAPE: turning off auto margins\n");
 				auto_margins = 0;
-				scrollok(stdscr, 0);
+				//scrollok(stdscr, 0);
 				current_parse_state = NONE;
 				current_arg = 0;
 			} else if(c == ';'){
