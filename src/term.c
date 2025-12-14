@@ -62,14 +62,14 @@ void print_bash_output(char *str){
 			move(0, 0);
 		} else if(*str == '\n'){
 			getyx(stdscr, y, x);
-			if(y >= LINES - 1){
-				scroll(stdscr);
-				move(LINES - 1, 0);
-			} else {
-				move(y + 1, 0);
-			}
-			//move(y, COLS - 1);
-			//printw("\n");
+			//if(y >= LINES - 1){
+			//	scroll(stdscr);
+			//	move(LINES - 1, 0);
+			//} else {
+			//	move(y + 1, 0);
+			//}
+			move(y, COLS - 1);
+			printw("\n");
 		} else {
 			attrset(A_NORMAL);
 			attron(global_attr);
@@ -271,6 +271,7 @@ int main(int argc, char **argv){
 	start_color();
 	noecho();
 	nodelay(stdscr, 1);
+	setscrreg(0, 0);
 	scrollok(stdscr, 1);
 	create_color_pairs(1);
 	global_foreground_color = COLOR_WHITE;

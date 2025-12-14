@@ -8,12 +8,8 @@ enum parse_state{
 	ESCAPE,
 	CSI_PARAMETERS,
 	CSI_INTERMEDIATE,
-	CSI_IMP_DEFINED,
-	CSI,
 	ST,
-	ST_END,
-	SEMICOLON,
-	ARG
+	ST_END
 };
 
 static enum parse_state current_parse_state = NONE;
@@ -321,7 +317,7 @@ void process_control_sequence(FILE *debug_file){
 		if(debug_file)
 			fprintf(debug_file, "ESCAPE: turning on auto margins\n");
 		auto_margins = 1;
-		scrollok(stdscr, 1);
+		//scrollok(stdscr, 1);
 	} else if(csi_final_byte == 'l'){
 		if(debug_file)
 			fprintf(debug_file, "ESCAPE: turning off auto margins\n");
@@ -443,10 +439,6 @@ void process_control_sequence(FILE *debug_file){
 }
 
 int parse_escape_char(char c, FILE *debug_file){
-	int x;
-	int y;
-	int i;
-
 	switch(current_parse_state){
 		case NONE:
 			if(c == 0x1B){
@@ -528,179 +520,6 @@ int parse_escape_char(char c, FILE *debug_file){
 				csi_final_byte = c;
 				process_control_sequence(debug_file);
 				current_parse_state = NONE;
-			}
-			break;
-		case ARG:
-			if(c >= '0' && c <= '9'){
-				args[current_arg] = args[current_arg]*10 + c - '0';
-				break;
-			}
-			//No break here, we continue into the CSI and SEMICOLON cases
-		case CSI:
-			if(c == '?'){
-				current_parse_state = CSI_IMP_DEFINED;
-				break;
-			}
-		case SEMICOLON:
-			if(c == 'h' && current_parse_state == CSI_IMP_DEFINED){
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: turning on auto margins\n");
-				auto_margins = 1;
-				scrollok(stdscr, 1);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'l' && current_parse_state == CSI_IMP_DEFINED){
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: turning off auto margins\n");
-				auto_margins = 0;
-				//scrollok(stdscr, 0);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == ';'){
-				current_parse_state = SEMICOLON;
-				if(current_arg < 255)
-					current_arg++;
-				args[current_arg] = -1;
-			} else if(current_parse_state == CSI && c >= '0' && c <= '9'){
-				args[current_arg] = c - '0';
-				current_parse_state = ARG;
-			} else if(current_parse_state == SEMICOLON && c >= '0' && c <= '9'){
-				args[current_arg] = c - '0';
-				current_parse_state = ARG;
-			} else if(c == 'A'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				y -= args[0];
-				bound_cursor_position(&y, &x);
-				move(y, x);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move up %d\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'B'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				y += args[0];
-				bound_cursor_position(&y, &x);
-				move(y, x);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move down %d\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'C'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				x += args[0];
-				bound_cursor_position(&y, &x);
-				move(y, x);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move right %d\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'D'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				x -= args[0];
-				bound_cursor_position(&y, &x);
-				move(y, x);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move left %d\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'E'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				y += args[0];
-				bound_cursor_position(&y, &x);
-				move(y, 1);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move to beginning of line %d rows down\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'F'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				y -= args[0];
-				bound_cursor_position(&y, &x);
-				move(y, 1);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move to beginning of line %d rows up\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'G'){
-				if(args[0] < 0)
-					args[0] = 1;
-				getyx(stdscr, y, x);
-				x = args[0] - 1;
-				bound_cursor_position(&y, &x);
-				move(y, x);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move to column %d\n", args[0]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'H'){
-				if(args[0] < 0)
-					args[0] = 1;
-				if(args[1] < 0)
-					args[1] = 1;
-				args[0]--;
-				args[1]--;
-				bound_cursor_position(args, args + 1);
-				move(args[0], args[1]);
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: move to %d, %d\n", args[0], args[1]);
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'm'){
-				if(debug_file)
-					fprintf(debug_file, "ESCAPE: srg ");
-				for(i = 0; i <= current_arg; i++){
-					if(args[i] < 0)
-						args[i] = 0;
-					if(args[i] < sizeof(sgr_functions)/sizeof(sgr_functions[0])){
-						if(debug_file)
-							fprintf(debug_file, "%d ", args[i]);
-						sgr_functions[args[i]]();
-					}
-				}
-				if(debug_file)
-					fprintf(debug_file, "\n");
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else if(c == 'K'){
-				if(args[0] < 0)
-					args[0] = 0;
-				switch(args[0]){
-					case 0:
-						clrtoeol();
-						break;
-					case 1:
-						attrset(A_NORMAL);
-						getyx(stdscr, y, x);
-						move(y, 0);
-						for(i = 0; i < x; i++){
-							printw(" ");
-						}
-						move(y, x);
-						break;
-					case 2:
-					case 3:
-						erase();
-						break;
-				}
-				current_parse_state = NONE;
-				current_arg = 0;
-			} else {
-				if(debug_file)
-					fprintf(debug_file, "UNKNOWN ESCAPE CSI %c\n", c);
-				current_parse_state = NONE;
-				current_arg = 0;
 			}
 			break;
 	}
