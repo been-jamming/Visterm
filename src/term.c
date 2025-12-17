@@ -281,7 +281,7 @@ int main(int argc, char **argv){
 
 	averages = calloc(COLS, sizeof(double));
 
-	curs_set(0);
+	curs_set(1);
 	place_cursor();
 	clock_gettime(CLOCK_MONOTONIC, &last_time);
 	while(1){
@@ -310,13 +310,14 @@ int main(int argc, char **argv){
 		if(select(pty_fd + 1, &readable, NULL, NULL, &no_wait) > 0){
 			chars_read = read(pty_fd, buffer, 8191);
 			if(chars_read > 0){
-				place_cursor();
+				//curs_set(0);
 				print_bash_output(buffer);
-				place_cursor();
 				memset(buffer, 0, sizeof(char)*8192);
 			} else if(chars_read <= 0){
 				exit_terminal();
 			}
+		} else {
+			//curs_set(1);
 		}
 		//update_visualizer();
 		refresh();
