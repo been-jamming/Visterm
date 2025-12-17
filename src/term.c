@@ -189,7 +189,7 @@ void update_visualizer(){
 	int orig_y;
 	int orig_x;
 
-	scrollok(stdscr, 1);
+	scrollok(stdscr, 0);
 	getyx(stdscr, orig_y, orig_x);
 
 	SDL_LockAudioDevice(recording_device_id);
@@ -212,7 +212,7 @@ void update_visualizer(){
 	}
 
 	move(orig_y, orig_x);
-	scrollok(stdscr, auto_margins);
+	scrollok(stdscr, 1);
 }
 
 int main(int argc, char **argv){
@@ -269,11 +269,28 @@ int main(int argc, char **argv){
 
 	cbreak();
 	start_color();
+	if(COLORS >= 256){
+		init_pair(1, COLOR_WHITE, COLOR_BLACK);
+		init_pair(2, COLOR_WHITE, 52);
+		init_pair(3, COLOR_WHITE, 58);
+		init_pair(4, COLOR_WHITE, 22);
+		red_background = 52;
+		yellow_background = 58;
+		green_background = 22;
+	} else {
+		init_pair(1, COLOR_WHITE, COLOR_BLACK);
+		init_pair(2, COLOR_WHITE, COLOR_RED);
+		init_pair(3, COLOR_WHITE, COLOR_YELLOW);
+		init_pair(4, COLOR_WHITE, COLOR_GREEN);
+		red_background = COLOR_RED;
+		yellow_background = COLOR_YELLOW;
+		green_background = COLOR_GREEN;
+	}
 	noecho();
 	nodelay(stdscr, 1);
 	setscrreg(0, 0);
 	scrollok(stdscr, 1);
-	create_color_pairs(1);
+	create_color_pairs(5);
 	global_foreground_color = COLOR_WHITE;
 	global_background_color = COLOR_BLACK;
 	bkgd(get_global_color());
@@ -319,7 +336,7 @@ int main(int argc, char **argv){
 		} else {
 			//curs_set(1);
 		}
-		//update_visualizer();
+		update_visualizer();
 		refresh();
 		clock_gettime(CLOCK_MONOTONIC, &current_time);
 		last_nanoseconds = get_nanoseconds(last_time);

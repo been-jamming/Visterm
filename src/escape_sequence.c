@@ -68,6 +68,24 @@ void create_color_pairs(int pairs_start){
 	}
 	global_attr = A_NORMAL;
 	global_set_color(get_global_color());
+
+	color_pairs_red = i;
+	for(i = color_pairs_red, c = 0; i < color_pairs_red + 64; i++, c++){
+		init_pair(i, c&7, red_background);
+		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
+	}
+	color_pairs_yellow = i;
+	for(i = color_pairs_yellow, c = 0; i < color_pairs_yellow + 64; i++, c++){
+		init_pair(i, c&7, yellow_background);
+		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
+	}
+	color_pairs_green = i;
+	for(i = color_pairs_green, c = 0; i < color_pairs_green + 64; i++, c++){
+		init_pair(i, c&7, green_background);
+		write_hollow_list(pairs_table, COLOR_PAIR(i), i, -1);
+	}
+	global_attr = A_NORMAL;
+	global_set_color(get_global_color());
 }
 
 void sgr_nothing(void){
